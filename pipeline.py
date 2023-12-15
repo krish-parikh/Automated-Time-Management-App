@@ -8,12 +8,6 @@ def pipeline(prompt, user_id):
         event_data = parse_event_data(event_data)
         for event in event_data:
             prioritisation(event=event, user_id=user_id)
-            print('Event added to calendar')
-        return
+        return 1
     except:
-        return
-
-
-prompt = 'I have an important exam this friday at 2pm need to revise for it on Tuesday morning.'
-
-pipeline(prompt, 8)
+        return 0

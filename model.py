@@ -9,10 +9,7 @@ llm = ChatOpenAI(
     model_name="gpt-3.5-turbo",
     temperature=0,
     max_tokens=200,
-    frequency_penalty=0,
-    presence_penalty=0,
-    top_p=1.0,
-    openai_api_key = "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"
+    openai_api_key = "sk-<your key here>",
 )
 
 schema = schema = Object(
@@ -67,13 +64,5 @@ schema = schema = Object(
 
 def get_event_info(text, llm = llm, schema = schema):
     chain = create_extraction_chain(llm, schema)
-    with get_openai_callback() as cb:
-        response = chain.run(text)["data"]
-        print(f"Total Tokens: {cb.total_tokens}")
-        print(f"Prompt Tokens: {cb.prompt_tokens}")
-        print(f"Completion Tokens: {cb.completion_tokens}")
-        print(f"Total Cost (USD): ${cb.total_cost}")
-        print(response)
+    response = chain.run(text)["data"]
     return response
-
-'''get_event_info(text = "I have a meeting tomorrow which i cant miss, followed by doctors appointment at 7.")'''
