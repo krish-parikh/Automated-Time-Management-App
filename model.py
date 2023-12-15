@@ -4,12 +4,17 @@ from kor.nodes import Object, Text, Number
 from langchain.chat_models import ChatOpenAI
 from langchain.llms import OpenAI
 from langchain.callbacks import get_openai_callback
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 llm = ChatOpenAI(
     model_name="gpt-3.5-turbo",
     temperature=0,
     max_tokens=200,
-    openai_api_key = "sk-xxx",
+    api_key=OPENAI_API_KEY,
 )
 
 schema = schema = Object(

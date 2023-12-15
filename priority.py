@@ -1,70 +1,74 @@
 import sqlite3
 from datetime import datetime, timedelta
 
+class DBManager:
+    def __init__(self, db_filename):
+        self.db_filename = db_filename
+
+    def __enter__(self):
+        self.conn = sqlite3.connect(self.db_filename)
+        self.cursor = self.conn.cursor()
+        return self.cursor
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.conn.commit()
+        self.cursor.close()
+        self.conn.close()
+
 def check_date(user_id, event_date):
     # Connect to the SQLite database
-    conn = sqlite3.connect('calendar_app.db')
-    cursor = conn.cursor()
+    with DBManager('calendar_app.db') as cursor:
+        # Get the events
+        query = 'SELECT * FROM events WHERE user_id = ? AND date(event_date) = ?'
+        cursor.execute(query, (user_id, event_date))
+        events = cursor.fetchall()
 
-    # Get the events
-    query = 'SELECT * FROM events WHERE user_id = ? AND date(event_date) = ?'
-    cursor.execute(query, (user_id, event_date))
-    events = cursor.fetchall()
+        # Create a dictionary with events
+        event_dict = {}
+        for event in events:
+            event_id, user_id, event_name, start_datetime, end_datetime, event_date, event_flexibility, event_importance = event
+            event_dict[event_id] = {
+                'user_id': user_id,
+                'event_name': event_name,
+                'start_datetime': start_datetime,
+                'end_datetime': end_datetime,
+                'event_date': event_date,
+                'event_flexibility': event_flexibility,
+                'event_importance': event_importance
+            }
 
-    # Create a dictionary with events
-    event_dict = {}
-    for event in events:
-        event_id, user_id, event_name, start_datetime, end_datetime, event_date, event_flexibility, event_importance = event
-        event_dict[event_id] = {
-            'user_id': user_id,
-            'event_name': event_name,
-            'start_datetime': start_datetime,
-            'end_datetime': end_datetime,
-            'event_date': event_date,
-            'event_flexibility': event_flexibility,
-            'event_importance': event_importance
-        }
-
-    # Commit the changes and close the connection
-    conn.commit()
-    conn.close()
-
-    return event_dict
+        return event_dict
 
 def check_event_time_gap(event_id):
     """
-    Check the start and end time gap of an event.
+    Check the time gap between the start and end time of an event.
     """
-
-    conn = sqlite3.connect('calendar_app.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT start_datetime, end_datetime FROM events WHERE id = ?", (event_id,))
-    event = cursor.fetchone()
-    if event and event[0] and event[1]:
-        start_time = datetime.strptime(event[0], "%Y-%m-%d %H:%M:%S")
-        end_time = datetime.strptime(event[1], "%Y-%m-%d %H:%M:%S")
-        return (end_time - start_time).total_seconds() / 3600  # Return gap in hours
-    return 0
+    with DBManager('calendar_app.db') as cursor:
+        cursor.execute("SELECT start_datetime, end_datetime FROM events WHERE id = ?", (event_id,))
+        event = cursor.fetchone()
+        if event and event[0] and event[1]:
+            start_time = datetime.strptime(event[0], "%Y-%m-%d %H:%M:%S")
+            end_time = datetime.strptime(event[1], "%Y-%m-%d %H:%M:%S")
+            return (end_time - start_time).total_seconds() / 3600
+        return 0
 
 def check_movability(event_id):
     """
     Check the movability of an event.
     """
-    conn = sqlite3.connect('calendar_app.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT event_flexibility FROM events WHERE id = ?", (event_id,))
-    movability = cursor.fetchone()
-    return movability[0] if movability else None
+    with DBManager('calendar_app.db') as cursor:
+        cursor.execute("SELECT event_flexibility FROM events WHERE id = ?", (event_id,))
+        movability = cursor.fetchone()
+        return movability[0] if movability else None
 
 def check_priority(event_id):
     """
     Check the priority of an event.
     """
-    conn = sqlite3.connect('calendar_app.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT event_importance FROM events WHERE id = ?", (event_id,))
-    priority = cursor.fetchone()
-    return priority[0] if priority else None
+    with DBManager('calendar_app.db') as cursor:
+        cursor.execute("SELECT event_importance FROM events WHERE id = ?", (event_id,))
+        priority = cursor.fetchone()
+        return priority[0] if priority else None
 
 def is_conflict(event1, event2):
     """
@@ -86,114 +90,103 @@ def add_event(user_id, event):
     """
     Add an event to the events table.
     """
-    conn = sqlite3.connect('calendar_app.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO events (user_id, event_name, start_datetime, end_datetime, event_date, event_flexibility, event_importance) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                   (user_id, event['event_name'], event['start_datetime'], event['end_datetime'], event['event_date'], event['event_flexibility'], event['event_importance']))
-    
-    event_id = cursor.lastrowid  # Get the ID of the newly inserted row
-    
-    conn.commit()
-    conn.close()
-    
-    return event_id  # Return the event ID
-
+    with DBManager('calendar_app.db') as cursor:
+        cursor.execute("INSERT INTO events (user_id, event_name, start_datetime, end_datetime, event_date, event_flexibility, event_importance) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (user_id, event['event_name'], event['start_datetime'], event['end_datetime'], event['event_date'], event['event_flexibility'], event['event_importance']))
+        event_id = cursor.lastrowid
+        return event_id
 
 def is_time_slot_available(event_id, start_time, end_time, user_id):
     """
     Check if a given time slot is available.
     """
-    conn = sqlite3.connect('calendar_app.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, event_flexibility FROM events WHERE user_id = ? AND ((start_datetime < ? AND end_datetime > ?) AND id != ?)", (user_id, end_time, start_time, event_id))
-    overlapping_events = cursor.fetchall()
+    with DBManager('calendar_app.db') as cursor:
+        # Check if the slot is available
+        cursor.execute("SELECT id, event_flexibility FROM events WHERE user_id = ? AND ((start_datetime < ? AND end_datetime > ?) OR (start_datetime < ? AND end_datetime > ?)) AND id != ?",
+                       (user_id, start_time, start_time, end_time, end_time, event_id))
+        overlapping_events = cursor.fetchall()
 
-    current_event_movability = check_movability(event_id)
+        # Check if the event is movable
+        current_event_movability = check_movability(event_id)
 
-    for overlap_event in overlapping_events:
-        overlap_id, overlap_flexibility = overlap_event
-        if current_event_movability == 1 and overlap_flexibility == 2:
-            # If the current event is more flexible, reorganise the overlapping event
-            gap_hours = check_event_time_gap(overlap_id)
-            reorganise_event(overlap_id, gap_hours, user_id)
-        else:
-            # If the current event is less flexible or equally flexible, the slot is not available
-            return False
+        # If the event is movable, check if the overlapping events are movable
+        for overlap_event in overlapping_events:
+            overlap_id, overlap_flexibility = overlap_event
+            if current_event_movability == 1 and overlap_flexibility == 2:
+                # If the current event is more flexible, reorganise the overlapping event
+                gap_hours = check_event_time_gap(overlap_id)
+                reorganise_event(overlap_id, gap_hours, user_id)
+            else:
+                # If the current event is less flexible or equally flexible, the slot is not available
+                return False
 
-    return True
+        return True
 
 def find_new_time_slot(event_id, gap_hours, user_id):
     """
     Find the nearest available new time slot for the event.
     """
-    conn = sqlite3.connect('calendar_app.db')
-    cursor = conn.cursor()
+    with DBManager('calendar_app.db') as cursor:
+        # Fetch the event details
+        cursor.execute("SELECT start_datetime, end_datetime FROM events WHERE user_id = ? AND id = ?", (user_id, event_id,))
+        event = cursor.fetchone()
+        if not event:
+            return None
 
-    # Fetch the event details
-    cursor.execute("SELECT start_datetime, end_datetime FROM events WHERE user_id = ? AND id = ?", (user_id, event_id,))
-    event = cursor.fetchone()
-    if not event:
+        original_start = datetime.strptime(event[0], "%Y-%m-%d %H:%M:%S")
+        original_end = datetime.strptime(event[1], "%Y-%m-%d %H:%M:%S")
+        gap = timedelta(hours=gap_hours)
+
+        # Collect all event times on the same day for the specific user to avoid these slots
+        event_date = original_start.date()
+        cursor.execute("SELECT start_datetime, end_datetime FROM events WHERE user_id = ? AND date(start_datetime) = ? AND id != ?", (user_id, event_date, event_id))
+        existing_events = cursor.fetchall()
+        occupied_slots = [(datetime.strptime(e[0], "%Y-%m-%d %H:%M:%S"), datetime.strptime(e[1], "%Y-%m-%d %H:%M:%S")) for e in existing_events]
+
+        # Function to check if a time slot overlaps with existing events
+        def is_slot_occupied(start, end):
+            for s, e in occupied_slots:
+                if max(start, s) < min(end, e):
+                    return True
+            return False
+
+        # Check for slots before and after the original start time
+        potential_start_times = []
+        new_start_time = original_start - gap
+        while new_start_time >= datetime(original_start.year, original_start.month, original_start.day, 0, 0, 0):
+            if not is_slot_occupied(new_start_time, new_start_time + gap):
+                potential_start_times.append(new_start_time)
+            new_start_time -= gap
+
+        new_start_time = original_end
+        while new_start_time + gap <= datetime(original_end.year, original_end.month, original_end.day, 23, 59, 59):
+            if not is_slot_occupied(new_start_time, new_start_time + gap):
+                potential_start_times.append(new_start_time)
+            new_start_time += gap
+
+        # Sort potential start times by proximity to the original start time and check availability
+        potential_start_times.sort(key=lambda x: abs((x - original_start).total_seconds()))
+        for new_start_time in potential_start_times:
+            new_end_time = new_start_time + gap
+            if is_time_slot_available(event_id, new_start_time, new_end_time, user_id):
+                return new_start_time
         return None
-
-    original_start = datetime.strptime(event[0], "%Y-%m-%d %H:%M:%S")
-    original_end = datetime.strptime(event[1], "%Y-%m-%d %H:%M:%S")
-    gap = timedelta(hours=gap_hours)
-
-    # Collect all event times on the same day for the specific user to avoid these slots
-    event_date = original_start.date()
-    cursor.execute("SELECT start_datetime, end_datetime FROM events WHERE user_id = ? AND date(start_datetime) = ? AND id != ?", (user_id, event_date, event_id))
-    existing_events = cursor.fetchall()
-    occupied_slots = [(datetime.strptime(e[0], "%Y-%m-%d %H:%M:%S"), datetime.strptime(e[1], "%Y-%m-%d %H:%M:%S")) for e in existing_events]
-
-    # Function to check if a time slot overlaps with existing events
-    def is_slot_occupied(start, end):
-        for s, e in occupied_slots:
-            if max(start, s) < min(end, e):
-                return True
-        return False
-
-    # Check for slots before and after the original start time
-    potential_start_times = []
-    new_start_time = original_start - gap
-    while new_start_time >= datetime(original_start.year, original_start.month, original_start.day, 0, 0, 0):
-        if not is_slot_occupied(new_start_time, new_start_time + gap):
-            potential_start_times.append(new_start_time)
-        new_start_time -= gap
-
-    new_start_time = original_end
-    while new_start_time + gap <= datetime(original_end.year, original_end.month, original_end.day, 23, 59, 59):
-        if not is_slot_occupied(new_start_time, new_start_time + gap):
-            potential_start_times.append(new_start_time)
-        new_start_time += gap
-
-    # Sort potential start times by proximity to the original start time and check availability
-    potential_start_times.sort(key=lambda x: abs((x - original_start).total_seconds()))
-    for new_start_time in potential_start_times:
-        new_end_time = new_start_time + gap
-        if is_time_slot_available(event_id, new_start_time, new_end_time, user_id):
-            return new_start_time
-
-    return None
 
 
 def reorganise_event(event_id, gap_hours, user_id):
     """
     Reorganise an event to a new time slot.
     """
-    new_start_time = find_new_time_slot(event_id, gap_hours, user_id)
-    if new_start_time:
-        conn = sqlite3.connect('calendar_app.db')
-        cursor = conn.cursor()
-        new_end_time = new_start_time + timedelta(hours=gap_hours)
-        cursor.execute("UPDATE events SET start_datetime = ?, end_datetime = ? WHERE user_id = ? AND id = ?", 
-                       (new_start_time.strftime("%Y-%m-%d %H:%M:%S"), new_end_time.strftime("%Y-%m-%d %H:%M:%S"), user_id, event_id))
-        conn.commit()
-        conn.close()
-        print("Event ID:", event_id, "reorganised to", new_start_time.strftime("%Y-%m-%d %H:%M:%S"))
-    else:
-        print("No suitable time slot found for event ID:", event_id)
+    with DBManager('calendar_app.db') as cursor:
 
-event = {'event_name': "Test6", 'event_date': '2023-12-05', 'start_datetime': '2023-12-05 12:00:00', 'end_datetime': '2023-12-05 12:10:00', 'event_importance': '5', 'event_flexibility': '2'}
+        new_start_time = find_new_time_slot(event_id, gap_hours, user_id)
+        if new_start_time:
+            new_end_time = new_start_time + timedelta(hours=gap_hours)
+            cursor.execute("UPDATE events SET start_datetime = ?, end_datetime = ? WHERE user_id = ? AND id = ?", 
+                        (new_start_time.strftime("%Y-%m-%d %H:%M:%S"), new_end_time.strftime("%Y-%m-%d %H:%M:%S"), user_id, event_id))
+            print("Event ID:", event_id, "reorganised to", new_start_time.strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            print("No suitable time slot found for event ID:", event_id)
 
 def prioritisation(event, user_id):
     """
@@ -244,7 +237,3 @@ def prioritisation(event, user_id):
                 return "New event reorganised due to lower priority."
         else:
             return "Event conflict exists, but no reorganisation due to equal flexibility."
-
-
-event = [{'event_name': 'Birthday', 'event_date': '2023-12-08', 'start_datetime': '2023-12-08 09:00:00', 'end_datetime': '2023-12-08 10:00:00', 'event_importance': '5', 'event_flexibility': '1'}, {'event_name': "Sleep", 'event_date': '2023-12-15', 'start_datetime': '2023-12-15 18:00:00', 'end_datetime': '2023-12-15 19:00:00', 'event_importance': '4', 'event_flexibility': '2'}]
-
