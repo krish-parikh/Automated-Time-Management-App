@@ -9,7 +9,7 @@ llm = ChatOpenAI(
     model_name="gpt-3.5-turbo",
     temperature=0,
     max_tokens=200,
-    openai_api_key = "sk-<your key here>",
+    openai_api_key = "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",
 )
 
 schema = schema = Object(
