@@ -11,6 +11,9 @@ from pipeline import pipeline
 from priority import DBManager
 from user import create_user, validate_credentials, get_user_details  # assuming get_user_details is a function you have
 
+from dotenv import load_dotenv
+import os
+
 class Prompt(BaseModel):
     prompt: str
 
@@ -45,7 +48,8 @@ rate_limiter = RateLimiter()
 
 app = FastAPI()
 
-SECRET_KEY = "secret"
+load_dotenv()
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
@@ -65,6 +69,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         # Fetch more user details if needed
         user = get_user_details(email)
         if user is None:
+            raise credentials_exception
+        # Check if token has expired
+        expiration = payload.get("exp")
+        if expiration is None or datetime.datetime.utcnow() > datetime.datetime.fromtimestamp(expiration):
             raise credentials_exception
         return user
     except JWTError:
