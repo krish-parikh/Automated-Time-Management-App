@@ -34,14 +34,19 @@ def register_user(username, password, email):
     response = requests.post(BASE_URL + "/register", json={"username": username, "password": password, "email": email})
     return response.json()
 
+def create_event(auth_token, prompt):
+    """Create an event for the authenticated user."""
+    headers = {'Authorization': f'Bearer {auth_token}'}
+    response = requests.post(BASE_URL + CREATE_EVENT_ENDPOINT, headers=headers, json={"prompt": prompt})
+    return response.json()
 
 
 if __name__ == "__main__":
     # Get an auth token for the user
     auth_token = get_auth_token(USER_EMAIL, USER_PASSWORD)
-    # Get events
-    events = get_events(auth_token)
-    print(events)
-
+    # Create an event
+    prompt = "I am meeting boss at work today aroung 6am and then goining out for a drink with my friend at 12pm."
+    event = create_event(auth_token, prompt)
+    print(event)
 
 

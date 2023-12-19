@@ -104,12 +104,12 @@ async def create_event(prompt: Prompt, user_id: int = Depends(get_current_user))
 
     event_data = prompt.prompt
     event_data = pipeline(event_data, user_id)
+    
 
-    if event_data == 0:
+    if event_data == None:
         return {"message": "Event creation failed"}
-
     else:
-        return {"message": "Event created successfully"}
+        return {"message": event_data}
     
 @app.get("/events")
 async def get_events(user_id: int = Depends(get_current_user)):
