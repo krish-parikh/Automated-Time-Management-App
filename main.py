@@ -9,8 +9,7 @@ import uvicorn
 
 from pipeline import pipeline
 from priority import DBManager
-from user import create_user, validate_credentials, get_user_details  # assuming get_user_details is a function you have
-
+from user import create_user, validate_credentials, get_user_details
 from dotenv import load_dotenv
 import os
 
