@@ -1,8 +1,9 @@
 from fastapi import FastAPI, HTTPException, status, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 import datetime
 import uvicorn
@@ -25,6 +26,14 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class Event(BaseModel):
+    event_name: Optional[str] = None
+    start_datetime: Optional[datetime.datetime] = None
+    end_datetime: Optional[datetime.datetime] = None
+    event_date: Optional[datetime.datetime] = None
+    event_flexibility: Optional[int] = None
+    event_priority: Optional[int] = None
+
 class RateLimiter:
     def __init__(self):
         self.requests = {}
@@ -46,6 +55,18 @@ class RateLimiter:
 rate_limiter = RateLimiter()
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -116,6 +137,25 @@ async def get_events(user_id: int = Depends(get_current_user)):
         cursor.execute("SELECT * FROM events WHERE user_id = ?", (user_id,))
         events = cursor.fetchall()
         return events
+    
+@app.patch("/events/{event_id}")
+async def update_event(event_id: int, event: Event, user_id: int = Depends(get_current_user)):
+    update_data = event.dict(exclude_unset=True)
+
+    set_clause = ", ".join([f"{key} = ?" for key in update_data])
+    values = list(update_data.values()) + [event_id, user_id]
+
+    query = f"UPDATE events SET {set_clause} WHERE event_id = ? AND user_id = ?"
+
+    with DBManager('calendar_app.db') as cursor:
+        cursor.execute(query, values)
+        return {"message": "Event updated successfully."}
+
+@app.delete("/events/{event_id}")
+async def delete_event(event_id: int, user_id: int = Depends(get_current_user)):
+    with DBManager('calendar_app.db') as cursor:
+        cursor.execute("DELETE FROM events WHERE event_id = ? AND user_id = ?", (event_id, user_id))
+        return {"message": "Event deleted successfully."}
     
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

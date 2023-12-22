@@ -1,7 +1,7 @@
 import requests
 
 # Constants
-BASE_URL = "http://44.204.24.198"
+BASE_URL = "http://18.206.154.112"
 LOGIN_ENDPOINT = "/login"
 EVENTS_ENDPOINT = "/events"
 CREATE_EVENT_ENDPOINT = "/create_event"
@@ -55,7 +55,7 @@ def create_event(auth_token, prompt):
         json={"prompt": prompt}
     )
     return response.json()
-
+    
 if __name__ == "__main__":
     # Get an auth token for the user
     auth_token = get_auth_token(USER_EMAIL, USER_PASSWORD)
