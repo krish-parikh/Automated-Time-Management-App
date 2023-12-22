@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from fastapi.security import OAuth2PasswordBearer
-from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 import datetime
 import uvicorn
@@ -55,18 +54,6 @@ class RateLimiter:
 rate_limiter = RateLimiter()
 
 app = FastAPI()
-
-origins = [
-    "http://localhost:5173",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
