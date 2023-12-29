@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 import datetime
 import uvicorn
+from fastapi.middleware.cors import CORSMiddleware
 
 from pipeline import pipeline
 from priority import DBManager
@@ -54,6 +55,14 @@ class RateLimiter:
 rate_limiter = RateLimiter()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -141,7 +150,7 @@ async def update_event(id: int, event: Event, user_id: int = Depends(get_current
 @app.delete("/events/{id}")
 async def delete_event(id: int, user_id: int = Depends(get_current_user)):
     with DBManager('calendar_app.db') as cursor:
-        cursor.execute("DELETE FROM events WHERE event_id = ? AND user_id = ?", (id, user_id))
+        cursor.execute("DELETE FROM events WHERE id = ? AND user_id = ?", (id, user_id))
         return {"message": "Event deleted successfully."}
     
 if __name__ == "__main__":
