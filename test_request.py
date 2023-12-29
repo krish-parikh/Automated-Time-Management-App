@@ -1,7 +1,7 @@
 import requests
 
 # Constants
-BASE_URL = "http://18.206.154.112"
+BASE_URL = "http://52.91.224.184"
 LOGIN_ENDPOINT = "/login"
 EVENTS_ENDPOINT = "/events"
 CREATE_EVENT_ENDPOINT = "/create_event"
@@ -12,10 +12,8 @@ USER_EMAIL = "krish.parikh@me.com"
 USER_PASSWORD = "1234"
 
 def get_auth_token(email, password):
-    headers = {"X-Api-Key": API_KEY}
     response = requests.post(
         BASE_URL + LOGIN_ENDPOINT,
-        headers=headers,
         json={"email": email, "password": password}
     )
     if response.status_code == 200:
@@ -35,10 +33,8 @@ def get_events(auth_token):
 
 def register_user(username, password, email):
     """Register a new user."""
-    headers = {"X-Api-Key": API_KEY}
     response = requests.post(
         BASE_URL + "/register", 
-        headers=headers, 
         json={"username": username, "password": password, "email": email}
     )
     return response.json()
@@ -47,7 +43,6 @@ def create_event(auth_token, prompt):
     """Create an event for the authenticated user."""
     headers = {
         'Authorization': f'Bearer {auth_token}',
-        "X-Api-Key": API_KEY
     }
     response = requests.post(
         BASE_URL + CREATE_EVENT_ENDPOINT, 

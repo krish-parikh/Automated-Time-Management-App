@@ -125,23 +125,23 @@ async def get_events(user_id: int = Depends(get_current_user)):
         events = cursor.fetchall()
         return events
     
-@app.patch("/events/{event_id}")
-async def update_event(event_id: int, event: Event, user_id: int = Depends(get_current_user)):
+@app.patch("/events/{id}")
+async def update_event(id: int, event: Event, user_id: int = Depends(get_current_user)):
     update_data = event.dict(exclude_unset=True)
 
     set_clause = ", ".join([f"{key} = ?" for key in update_data])
-    values = list(update_data.values()) + [event_id, user_id]
+    values = list(update_data.values()) + [id, user_id]
 
-    query = f"UPDATE events SET {set_clause} WHERE event_id = ? AND user_id = ?"
+    query = f"UPDATE events SET {set_clause} WHERE id = ? AND user_id = ?"
 
     with DBManager('calendar_app.db') as cursor:
         cursor.execute(query, values)
         return {"message": "Event updated successfully."}
 
-@app.delete("/events/{event_id}")
-async def delete_event(event_id: int, user_id: int = Depends(get_current_user)):
+@app.delete("/events/{id}")
+async def delete_event(id: int, user_id: int = Depends(get_current_user)):
     with DBManager('calendar_app.db') as cursor:
-        cursor.execute("DELETE FROM events WHERE event_id = ? AND user_id = ?", (event_id, user_id))
+        cursor.execute("DELETE FROM events WHERE event_id = ? AND user_id = ?", (id, user_id))
         return {"message": "Event deleted successfully."}
     
 if __name__ == "__main__":
