@@ -27,12 +27,12 @@ class LoginRequest(BaseModel):
     password: str
 
 class Event(BaseModel):
-    event_name: Optional[str] = None
-    start_datetime: Optional[datetime.datetime] = None
-    end_datetime: Optional[datetime.datetime] = None
-    event_date: Optional[datetime.datetime] = None
-    event_flexibility: Optional[int] = None
-    event_priority: Optional[int] = None
+    event_name: str
+    start_datetime: datetime.datetime
+    end_datetime: datetime.datetime
+    event_date: str
+    event_flexibility: int
+    event_importance: int
 
 class RateLimiter:
     def __init__(self):
@@ -138,6 +138,16 @@ async def get_events(user_id: int = Depends(get_current_user)):
 async def update_event(id: int, event: Event, user_id: int = Depends(get_current_user)):
     update_data = event.dict(exclude_unset=True)
 
+    # Formatting date and datetime fields before updating
+    if 'start_datetime' in update_data:
+        update_data['start_datetime'] = update_data['start_datetime'].strftime("%Y-%m-%d %H:%M:%S")
+    if 'end_datetime' in update_data:
+        update_data['end_datetime'] = update_data['end_datetime'].strftime("%Y-%m-%d %H:%M:%S")
+
+    # Check if update_data is empty (no data to update)
+    if not update_data:
+        return
+
     set_clause = ", ".join([f"{key} = ?" for key in update_data])
     values = list(update_data.values()) + [id, user_id]
 
@@ -145,7 +155,11 @@ async def update_event(id: int, event: Event, user_id: int = Depends(get_current
 
     with DBManager('calendar_app.db') as cursor:
         cursor.execute(query, values)
-        return {"message": "Event updated successfully."}
+        if cursor.rowcount == 0:
+            # No rows were updated, likely because the ID was not found.
+            return {"message": "No update performed. Check if the event exists and belongs to the user."}
+        return
+
 
 @app.delete("/events/{id}")
 async def delete_event(id: int, user_id: int = Depends(get_current_user)):
