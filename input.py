@@ -109,21 +109,29 @@ def clean_event_info(response):
 def parse_event_data(event_data):
     cleaned_data = clean_event_info(event_data)
     parsed_data = []
-    current_year = datetime.now().year
+    current_date = datetime.now().date()
+    current_year = current_date.year
 
     for event in cleaned_data['event_info']:
         day, month = map(int, event['event_date'].split(", "))
-        formatted_date = date(current_year, month, day)
+        event_year = current_year
+
+        # Create a date object for the event
+        event_date = date(event_year, month, day)
+        # Check if the event date has already passed this year, adjust the year if necessary
+        if event_date < current_date:
+            event_year += 1
+            event_date = date(event_year, month, day)
 
         start_datetime = end_datetime = None
         if event['event_time']:
             start_time, end_time = event['event_time'].split(", ")
-            start_datetime = datetime.strptime(f"{formatted_date} {start_time}", '%Y-%m-%d %H:%M')
-            end_datetime = datetime.strptime(f"{formatted_date} {end_time}", '%Y-%m-%d %H:%M')
+            start_datetime = datetime.strptime(f"{event_date} {start_time}", '%Y-%m-%d %H:%M')
+            end_datetime = datetime.strptime(f"{event_date} {end_time}", '%Y-%m-%d %H:%M')
 
         parsed_data.append({
             'event_name': event['event_name'],
-            'event_date': formatted_date.strftime("%Y-%m-%d"),
+            'event_date': event_date.strftime("%Y-%m-%d"),
             'start_datetime': start_datetime.strftime("%Y-%m-%d %H:%M:%S") if start_datetime else None,
             'end_datetime': end_datetime.strftime("%Y-%m-%d %H:%M:%S") if end_datetime else None,
             'event_importance': event['event_importance'],
