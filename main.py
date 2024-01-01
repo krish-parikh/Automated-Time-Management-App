@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, status, Depends, Request
+from fastapi import FastAPI, HTTPException, status, Depends, Request, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
@@ -66,8 +66,14 @@ app.add_middleware(
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
+API_KEY = os.getenv("API_KEY")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+async def verify_api_key(x_api_key: str = Header(...)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -95,7 +101,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
 
 @app.post("/login")
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, api_key: str = Depends(verify_api_key)):
     email = request.email
     password = request.password
 
@@ -109,12 +115,12 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed. Please try again.")
 
 @app.post("/register")
-async def register(user: User):
+async def register(user: User, api_key: str = Depends(verify_api_key)):
     create_user(user.username, user.password, user.email)
     return {"message": "User created successfully."}
     
 @app.post("/create_event")
-async def create_event(prompt: Prompt, user_id: int = Depends(get_current_user)):
+async def create_event(prompt: Prompt, user_id: int = Depends(get_current_user), api_key: str = Depends(verify_api_key)):
     if not rate_limiter.limit(user_id, 20):
         return JSONResponse(status_code=429, content={"message": "Rate limit exceeded"})
 
@@ -128,14 +134,14 @@ async def create_event(prompt: Prompt, user_id: int = Depends(get_current_user))
         return {"message": event_data}
     
 @app.get("/events")
-async def get_events(user_id: int = Depends(get_current_user)):
+async def get_events(user_id: int = Depends(get_current_user), api_key: str = Depends(verify_api_key)):
     with DBManager('calendar_app.db') as cursor:
         cursor.execute("SELECT * FROM events WHERE user_id = ?", (user_id,))
         events = cursor.fetchall()
         return events
     
 @app.patch("/events/{id}")
-async def update_event(id: int, event: Event, user_id: int = Depends(get_current_user)):
+async def update_event(id: int, event: Event, user_id: int = Depends(get_current_user), api_key: str = Depends(verify_api_key)):
     update_data = event.dict(exclude_unset=True)
 
     # Formatting date and datetime fields before updating
@@ -162,7 +168,7 @@ async def update_event(id: int, event: Event, user_id: int = Depends(get_current
 
 
 @app.delete("/events/{id}")
-async def delete_event(id: int, user_id: int = Depends(get_current_user)):
+async def delete_event(id: int, user_id: int = Depends(get_current_user), api_key: str = Depends(verify_api_key)):
     with DBManager('calendar_app.db') as cursor:
         cursor.execute("DELETE FROM events WHERE id = ? AND user_id = ?", (id, user_id))
         return {"message": "Event deleted successfully."}
