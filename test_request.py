@@ -1,14 +1,14 @@
 import requests
 
 # Constants
-BASE_URL = "http://52.91.224.184"
+BASE_URL = "local host" # replace with the port your API is running
 LOGIN_ENDPOINT = "/login"
 EVENTS_ENDPOINT = "/events"
 CREATE_EVENT_ENDPOINT = "/create_event"
-API_KEY = "BDeZnpabL9xww0i7//92MTheqnOzKZg4LK+Zu6w8ERk="  # Your API key
+API_KEY = "..."  # Your API key
 
 # User credentials
-USER_EMAIL = "krish.parikh@me.com"
+USER_EMAIL = "test.test@me.com"
 USER_PASSWORD = "1234"
 
 def get_auth_token(email, password):
