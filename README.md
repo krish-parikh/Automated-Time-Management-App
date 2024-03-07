@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repository contains the backend functionality for an automated time management application. It leverages GPT-3.5 for event extraction and prioritization, facilitating efficient calendar management and event scheduling.
+This repository contains the backend functionality for an automated time management application. It leverages GPT-3.5 for event extraction and prioritisation, facilitating efficient calendar management and event scheduling.
 
 ## Components
 
